@@ -99,7 +99,32 @@ def generate_data():
                     params = future_results[future]
                     print(f"Task {params} generated an exception: {exc}")
 
+def format_time_label(time) -> str:
+    """Format time in seconds to a more readable string."""
+    time = float(time)
+    if time < 60:
+        return f'{time:.1f}s'
+    elif time < 3600:
+        return f'{time/60:.1f}m'
+    elif time < 86400:
+        return f'{time/3600:.1f}h'
+    else:
+        return f'{time/86400:.1f}d'
+
+def text_on_plot_right(ax, y, text, color):
+    ax.text(1.02, y, text, 
+            transform=ax.get_yaxis_transform(),
+            fontweight='bold',
+            va='center', fontsize=9, color=color)
+
+def text_on_plot_top(ax, x, text, color):
+    ax.text(x, 1.005, text, 
+            transform=ax.get_xaxis_transform(),
+            #fontweight='bold',
+            ha='center', va='bottom', fontsize=9, color=color)
+            
 def plot_speed_per_model(infile=filename):
+    
     df = pd.read_csv(infile)
     df = df[df['num_samples']==2]
 
@@ -110,23 +135,43 @@ def plot_speed_per_model(infile=filename):
     fit_fn = np.poly1d(fit_times)
     np.log10(fit_fn(neL[-1]))
     fitted_line = fit_fn(neL[1:])
+    
+    fig, ax = plt.subplots()
 
     for model in models:
         model_times = df_avg[df_avg['model']==model]['ex_time'].to_numpy()
         xs = neL[:len(model_times)]
-        plt.plot(xs, model_times, marker='o', label=model)
+        line = ax.plot(xs, model_times, marker='o', label=model)
+        
+        final_time = model_times[-1]
+        
+        time_label = format_time_label(final_time)     
+        text_on_plot_right(ax, final_time, time_label, line[0].get_color())
 
-    plt.plot(neL[1:], fitted_line, linestyle='--', color='gray', label='Quadratic fit (Hudson)')
+    ax.plot(neL[1:], fitted_line, linestyle='--', color='gray', label='Quadratic fit (Hudson)')
+    final_fitted_time = fitted_line[-1]
+    fitted_time_label = format_time_label(final_fitted_time)
 
-    plt.axvline(x=drosophila_neL, color='green', linestyle=':', label='Drosophila Ne*L (chrom 2L)', linewidth=4)
-    plt.axvline(x=human_neL, color='purple', linestyle=':', label='Human Ne*L (chrom 1)', linewidth=4)
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('Population-scaled Sequence Length (Ne * L)')
-    plt.ylabel('Execution Time (seconds)')
-    plt.title('SMC(k) vs Hudson Execution Time')
-    plt.legend()
+    text_on_plot_right(ax, final_fitted_time, fitted_time_label, 'gray') 
+
+    ax.axvline(x=drosophila_neL, color='green', linestyle=':', linewidth=3)
+    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 2L)", "green")
+    ax.axvline(x=human_neL, color='purple', linestyle=':', linewidth=3)
+    text_on_plot_top(ax, human_neL, "Human\n(chrom 1)", "purple")
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('Population-scaled Sequence Length (Ne * L)')
+    #ax.set_ylabel('Execution Time (seconds)')
+    #ax.set_title('SMC(k) vs Hudson Execution Time')
+    ax.set_title('Execution Time (seconds)', ha='right')
+
+    ax.legend()
     #plt.grid(True, which="both", ls="--")
+    
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.90)  # Make room for the labels on the right
+
     save('speed_per_model')
     plt.clf()
 
@@ -135,26 +180,36 @@ def plot_speed_per_sample_size(infile=filename):
     df = df[df['model'].isin(models_for_sample_size.keys())]
 
     df_avg = df.groupby(['model', 'L', 'num_samples']).mean().reset_index()
-
+    
+    fig, ax = plt.subplots()
     for model in models_for_sample_size:
         if model not in ['smc(k=1)']: continue
         for sample_size in sample_sizes:
             model_times = df_avg[(df_avg['model']==model) & (df_avg['num_samples']==sample_size)]['ex_time'].to_numpy()
             xs = neL[:len(model_times)]
-            plt.plot(xs, model_times, marker='o', label=f"{model}, n={sample_size}")
+            line = ax.plot(xs, model_times, marker='o', label=f"{model}, n={sample_size}")
 
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('Population-scaled Sequence Length (Ne * L)')
+            final_time = model_times[-1]
+            time_label = format_time_label(final_time)     
+            text_on_plot_right(ax, final_time, time_label, line[0].get_color())
+
+    ax.axvline(x=drosophila_neL, color='black', linestyle=':', linewidth=3)
+    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 2L)", "black")
+    ax.axvline(x=human_neL, color='grey', linestyle=':', linewidth=3)
+    text_on_plot_top(ax, human_neL, "Human\n(chrom 1)", "grey")
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('Population-scaled Sequence Length (Ne * L)')
     #plt.ylabel('Execution Time (seconds)')
-    plt.title('SMC(k=1) execution time (seconds) for different sample sizes.')
-    plt.legend()
-    plt.grid(True, which="both", ls="--")
+    ax.set_title('Execution Time (seconds)', ha='right')
+    ax.legend()
+    #plt.grid(True, which="both", ls="--")
     save('speed_per_sample_size')
     plt.clf()
 
 
 if __name__ == "__main__":
-    generate_data()
+    #generate_data()
     plot_speed_per_model()
     plot_speed_per_sample_size()
