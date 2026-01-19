@@ -19,7 +19,7 @@ Ne = 1e6
 
 seq_len_dor = 23513712
 recombination_rate = 1e-8 #2.40463e-08
-sample_sizes = [2, 10, 100, 1000, 10000]
+sample_sizes = [2, 4, 10, 100, 1000, 10000]
 
 lengths = np.logspace(1, 7, num=7, dtype=int)
 lengths = np.append(lengths, seq_len_dor)
@@ -122,7 +122,58 @@ def text_on_plot_top(ax, x, text, color):
             transform=ax.get_xaxis_transform(),
             #fontweight='bold',
             ha='center', va='bottom', fontsize=9, color=color)
-            
+
+def plot_speed(infile=filename):
+    
+    df = pd.read_csv(infile)
+    df = df[df['num_samples']==4]
+
+    df_avg = df.groupby(['model', 'L']).mean().reset_index()
+    shortened_neL = Ne * lengths[lengths <= 1e6]
+    hudson_times = df_avg[df_avg['model']=='Hudson']['ex_time'].to_numpy()
+    fit_times = np.polyfit(shortened_neL, hudson_times, 2)
+    fit_fn = np.poly1d(fit_times)
+    np.log10(fit_fn(neL[-1]))
+    fitted_line = fit_fn(neL[1:])
+    
+    fig, ax = plt.subplots()
+
+    for model in models_for_sample_size:
+        model_times = df_avg[df_avg['model']==model]['ex_time'].to_numpy()
+        xs = neL[:len(model_times)]
+        line = ax.plot(xs, model_times, marker='o', label=model)
+        
+        final_time = model_times[-1]
+        
+        time_label = format_time_label(final_time)     
+        text_on_plot_right(ax, final_time, time_label, line[0].get_color())
+
+    ax.plot(neL[1:], fitted_line, linestyle='--', color='gray', label='Quadratic fit (Hudson)')
+    final_fitted_time = fitted_line[-1]
+    fitted_time_label = format_time_label(final_fitted_time)
+
+    text_on_plot_right(ax, final_fitted_time, fitted_time_label, 'gray') 
+
+    ax.axvline(x=drosophila_neL, color='green', linestyle=':', linewidth=3)
+    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 2L)", "green")
+    ax.axvline(x=human_neL, color='purple', linestyle=':', linewidth=3)
+    text_on_plot_top(ax, human_neL, "Human\n(chrom 1)", "purple")
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('Population-scaled Sequence Length (Ne * L)')
+    #ax.set_ylabel('Execution Time (seconds)')
+    #ax.set_title('SMC(k) vs Hudson Execution Time')
+    ax.set_title('Execution Time (seconds)', ha='right')
+    ax.legend()
+    #plt.grid(True, which="both", ls="--")
+    
+    plt.tight_layout()
+    plt.subplots_adjust(right=0.90)  # Make room for the labels on the right
+
+    save('speed')
+    plt.clf()
+
 def plot_speed_per_model(infile=filename):
     
     df = pd.read_csv(infile)
@@ -211,5 +262,6 @@ def plot_speed_per_sample_size(infile=filename):
 
 if __name__ == "__main__":
     #generate_data()
+    plot_speed()
     plot_speed_per_model()
     plot_speed_per_sample_size()
