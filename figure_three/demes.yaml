@@ -1,0 +1,24 @@
+description:
+  3 population IM model with migration from Iphiclides feisthamelii into I. podalirius.
+time_units: generations
+demes:
+  - name: ancestral
+    epochs:
+      - {start_size: 1.15E6, end_time: 2.18E6}
+  - name: IF
+    ancestors: [ancestral]
+    epochs:
+      - start_size: 4.83E5
+  - name: IP
+    ancestors: [ancestral]
+    epochs:
+      - start_size: 3.77E5
+migrations:
+  - source: IF
+    dest: IP
+    rate: 4.73E-08
+
+  - source: IP
+    dest: IF
+    rate: 1.553e-06
+    start_time: 275
