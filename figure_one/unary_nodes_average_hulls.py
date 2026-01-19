@@ -302,16 +302,17 @@ def plot_stacked_bars(infile=filename):
                label=gray_label, color='gray', alpha=0.5)
 
         # Add labels for number of segments
-        total_heights = model_data['avg_l1'] + model_data['avg_l2'] + model_data['avg_trapped']
+        """total_heights = model_data['avg_l1'] + model_data['avg_l2'] + model_data['avg_trapped']
         for j, (offset, height, segments) in enumerate(zip(offsets, total_heights, model_segments)):
             ax.text(offset, height + 0.01, f'avg no of adj\n segments: {segments:.1f}',
-                   ha='center', va='bottom', fontsize=4, rotation=0)
+                   ha='center', va='bottom', fontsize=4, rotation=0)"""
 
-    x_ticks = [f"{i*4*ne}" for i in rs]
+    human_rho = ((1e-8)*4*1e4)
+    x_ticks = [f"{(i*4*ne)/human_rho:.2g}" for i in rs]
     print(x_ticks)
     ax.set_xticks(x)
     ax.set_xticklabels(x_ticks)
-    ax.set_xlabel('rho')
+    ax.set_xlabel(r'Normalized recombination rate ($\rho / \rho_{\mathrm{human}}$)')
     #ax.set_yscale('log')
     ax.set_ylabel('Normalized length (per L)')
     ax.set_title(f'Stacked bar of l1, l2, and trapped material per r\nSample size {sample_size}, Ne {Ne}, L {L}')
