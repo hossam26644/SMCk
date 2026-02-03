@@ -17,9 +17,9 @@ filename = f'speed.csv'
 replicates  = 25
 Ne = 1e6
 
-seq_len_dor = 23513712
+seq_len_dor = 32079331
 recombination_rate = 1e-8 #2.40463e-08
-sample_sizes = [2, 4, 10, 100, 1000, 10000]
+sample_sizes = [2, 4, 10, 100, 1000]
 
 lengths = np.logspace(1, 7, num=7, dtype=int)
 lengths = np.append(lengths, seq_len_dor)
@@ -52,7 +52,7 @@ def get_exc_time(params):
     start_time = time.time()
     ts = msprime.sim_ancestry(
         samples=sample_size,
-        ploidy=1,
+        ploidy=2,
         sequence_length=length,
         recombination_rate=recombination_rate,
         population_size=Ne,
@@ -126,10 +126,10 @@ def text_on_plot_top(ax, x, text, color):
 def plot_speed(infile=filename):
     
     df = pd.read_csv(infile)
-    df = df[df['num_samples']==4]
+    df = df[df['num_samples']==2]
 
     df_avg = df.groupby(['model', 'L']).mean().reset_index()
-    shortened_neL = Ne * lengths[lengths <= 1e6]
+    #shortened_neL = Ne * lengths[lengths <= 1e6]
     hudson_times = df_avg[df_avg['model']=='Hudson']['ex_time'].to_numpy()
     fit_times = np.polyfit(shortened_neL, hudson_times, 2)
     fit_fn = np.poly1d(fit_times)
@@ -145,8 +145,9 @@ def plot_speed(infile=filename):
         
         final_time = model_times[-1]
         
-        time_label = format_time_label(final_time)     
-        text_on_plot_right(ax, final_time, time_label, line[0].get_color())
+        if len(model_times) == len(lengths):
+            time_label = format_time_label(final_time)     
+            text_on_plot_right(ax, final_time, time_label, line[0].get_color())
 
     ax.plot(neL[1:], fitted_line, linestyle='--', color='gray', label='Quadratic fit (Hudson)')
     final_fitted_time = fitted_line[-1]
@@ -155,7 +156,7 @@ def plot_speed(infile=filename):
     text_on_plot_right(ax, final_fitted_time, fitted_time_label, 'gray') 
 
     ax.axvline(x=drosophila_neL, color='green', linestyle=':', linewidth=3)
-    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 2L)", "green")
+    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 3R)", "green")
     ax.axvline(x=human_neL, color='purple', linestyle=':', linewidth=3)
     text_on_plot_top(ax, human_neL, "Human\n(chrom 1)", "purple")
 
@@ -195,9 +196,9 @@ def plot_speed_per_model(infile=filename):
         line = ax.plot(xs, model_times, marker='o', label=model)
         
         final_time = model_times[-1]
-        
-        time_label = format_time_label(final_time)     
-        text_on_plot_right(ax, final_time, time_label, line[0].get_color())
+        if len(model_times) == len(lengths):
+            time_label = format_time_label(final_time)     
+            text_on_plot_right(ax, final_time, time_label, line[0].get_color())
 
     ax.plot(neL[1:], fitted_line, linestyle='--', color='gray', label='Quadratic fit (Hudson)')
     final_fitted_time = fitted_line[-1]
@@ -206,7 +207,7 @@ def plot_speed_per_model(infile=filename):
     text_on_plot_right(ax, final_fitted_time, fitted_time_label, 'gray') 
 
     ax.axvline(x=drosophila_neL, color='green', linestyle=':', linewidth=3)
-    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 2L)", "green")
+    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 3R)", "green")
     ax.axvline(x=human_neL, color='purple', linestyle=':', linewidth=3)
     text_on_plot_top(ax, human_neL, "Human\n(chrom 1)", "purple")
 
@@ -240,12 +241,13 @@ def plot_speed_per_sample_size(infile=filename):
             xs = neL[:len(model_times)]
             line = ax.plot(xs, model_times, marker='o', label=f"{model}, n={sample_size}")
 
-            final_time = model_times[-1]
-            time_label = format_time_label(final_time)     
-            text_on_plot_right(ax, final_time, time_label, line[0].get_color())
+            if len(model_times) == len(lengths):
+                final_time = model_times[-1]
+                time_label = format_time_label(final_time)     
+                text_on_plot_right(ax, final_time, time_label, line[0].get_color())
 
     ax.axvline(x=drosophila_neL, color='black', linestyle=':', linewidth=3)
-    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 2L)", "black")
+    text_on_plot_top(ax, drosophila_neL, "Drosophila\n(chrom 3R)", "black")
     ax.axvline(x=human_neL, color='grey', linestyle=':', linewidth=3)
     text_on_plot_top(ax, human_neL, "Human\n(chrom 1)", "grey")
 
