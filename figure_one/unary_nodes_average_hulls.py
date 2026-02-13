@@ -2,6 +2,8 @@ import msprime
 import concurrent
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+from matplotlib.legend_handler import HandlerTuple
 import time
 import numpy as np
 import ast
@@ -13,12 +15,11 @@ r = 1e-8
 Ne = 1e6
 L = 1e6
 max_workers=3
-max_time = 32497565 * 1.5 #31980380 was the oldest node time observed when simulating without endtime
 filename = f'average_hulls_{sample_size}samples_segments.csv'
-models = {'Hudson':'Hudson',
-          'smc(k=500k)': msprime.SmcKApproxCoalescent(hull_offset=500000),
-          'smc(k=1)': msprime.SmcKApproxCoalescent(hull_offset=1),
-          'smc(k=0)': msprime.SmcKApproxCoalescent(hull_offset=0)
+models = {'CwR':'Hudson',
+          'SMCK(500kb)': msprime.SMCK(500000),
+          'SMCK(1)': msprime.SMCK(1),
+          'SMCK(0)': msprime.SMCK(0)
           }
 
 rs = [1e-11, 1e-10, 1e-9]
@@ -44,9 +45,7 @@ def get_hulls_after_n_generations(params):
         model=model_class,
         #additional_nodes=(msprime.NodeType.COMMON_ANCESTOR),
         coalescing_segments_only=False,
-        stop_at_local_mrca=False,
-        end_time=max_time
-
+        stop_at_local_mrca=False
 
     )
     num_trees = ts.num_trees
@@ -170,79 +169,64 @@ def generate_data(replicates=5):
                     params = future_results[future]
                     print(f"Task {params} generated an exception: {exc}")
 
-def plot_by_samples(infile=filename):
+def plot_single_parameter(param='num_trees', log_f=False, title=None):
     # Read CSV
     import ast
 
-    df = pd.read_csv(infile)
-
-
-    models = sorted(df['model'].unique())
-    cmap = plt.get_cmap("viridis", len(models))
-
-    fig, axs = plt.subplots(1, 1, figsize=(10, 10), sharex=True)
-
-    line_styles = ['dotted', 'dashed', 'dashdot', 'solid']
-
-    total_hap_len ={}; unary_hap_len = {}; binary_hap_len = {}
-    # Panel 1: avg_l1
-    for i, model in enumerate(models):
-        df_model = df[df['model'] == model]
-        #grouped = df_model.groupby('r').apply(lambda x: x['avg_l1'].mean() / x['avg_span'].mean()).reset_index(name='avg_l1_normalized')
-        grouped_in = df_model.groupby('r').apply(lambda x: x['avg_hulls'].mean() / L).reset_index(name='avg_hulls_normalized')
-        plt.plot(grouped_in['r'], grouped_in['avg_hulls_normalized'], label=model, color=cmap(i), marker='o')
-
-
-    plt.title(f'Expected hulls, sample size {sample_size}, Ne {Ne}, L {L}')
-    plt.grid(True)
-    plt.legend(title='Model')
-    plt.xlabel('r')
-    plt.xscale('log')
-    plt.ylim(0, 1)
-
-
-
-    plt.tight_layout()
-    save(f'{infile.split(".")[0]}_by_samples')
-    plt.close()
-
-def plot_single_parameter(infile=filename, param='num_trees', log_f=False):
-    # Read CSV
-    import ast
-
-    df = pd.read_csv(infile)
+    df = pd.read_csv(filename)
+    rs = sorted(df['r'].unique())
+    x = np.arange(len(rs))
 
     ne = df['N'][0]
     assert np.all(df['N'] == ne), "N values are not consistent in the data."
 
-    models = sorted(df['model'].unique())
-    cmap = plt.get_cmap("viridis", len(models))
+    #models = sorted(df['model'].unique())
+    cmap = plt.get_cmap('tab10')
 
-    fig, axs = plt.subplots(1, 1, figsize=(10, 10), sharex=True)
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10), sharex=True)
 
-    line_styles = ['dotted', 'dashed', 'dashdot', 'solid']
+    width = 0.8 / len(models)  # space bars for each model at the same r
 
-    total_hap_len ={}; unary_hap_len = {}; binary_hap_len = {}
     # Panel 1: avg_l1
     for i, model in enumerate(models):
         df_model = df[df['model'] == model]
         grouped_in = df_model.groupby('r').apply(lambda x: x[param].mean()).reset_index(name=f'mean_{param}')
-        plt.plot(grouped_in['r'], grouped_in[f'mean_{param}'], label=model, color=cmap(i), marker='o')
-        #scatter plot of the original points
-        plt.scatter(df_model['r'], df_model[param], color=cmap(i), alpha=0.3)
 
+        color = cmap(i)
 
-    plt.title(f'{param}, sample size {sample_size}, Ne {ne}, L {L}')
+        offsets = x + i * width - (width * len(models)) / 2
+        ax.bar(offsets, grouped_in[f'mean_{param}'], width,  alpha=0.8, color=color, label=model)
+        r_to_x = dict(zip(rs, x))
+
+        scatter_x = df_model['r'].map(r_to_x) + i * width - (width * len(models)) / 2
+
+        ax.scatter(scatter_x,
+                df_model[param],
+                color=color,
+                alpha=0.6,
+                s=20,
+                linewidth=0.3,
+                zorder=3)
+    if title is not None:
+        plt.title(title, loc='left', fontsize=20)
+    else:
+        plt.title(f'{param}, sample size {sample_size}, Ne {ne}, L {L}', loc='left', fontsize=20)
+    
+    human_rho = ((1e-8)*4*1e4)
     plt.grid(True)
-    plt.legend(title='Model')
-    plt.xlabel('r')
-    plt.xscale('log')
+    plt.legend(fontsize=16)
+    ax.set_xlabel(r'Normalised recombination rate ($\rho / \rho_{\mathrm{human}}$)', fontsize=16)
+    x_ticks = [f"{(i*4*ne)/human_rho:.2g}" for i in rs]
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_ticks)
+    ax.tick_params(labelsize=16)
+
     if log_f:
         plt.yscale('log')
 
-        out_file_name = f'single_param{infile.split(".")[0]}_{param}_log'
+        out_file_name = f'single_param{filename.split(".")[0]}_{param}_log'
     else:
-        out_file_name = f'single_param{infile.split(".")[0]}_{param}'
+        out_file_name = f'single_param{filename.split(".")[0]}_{param}'
 
 
     plt.tight_layout()
@@ -288,106 +272,53 @@ def plot_stacked_bars(infile=filename):
     fig, ax = plt.subplots(figsize=(12, 6))
     cmap = plt.get_cmap('tab10')
 
+    legend_handles = []
+    legend_labels = []
     for i, model in enumerate(models):
+        color = cmap(i)
         model_data = grouped[grouped['model'] == model]
         model_segments = segments_for_label[grouped['model'] == model]
         offsets = x + i * width - (width * len(models)) / 2
-        print(f'model: {model}, l1: {model_data["avg_l1"].values}, l2: {model_data["avg_l2"].values}, trapped: {model_data["avg_trapped"].values}')
-
-        ax.bar(offsets, model_data['avg_l1'], width, label=f'{model} - l1', color=cmap(i), alpha=0.6)
-        ax.bar(offsets, model_data['avg_l2'], width, bottom=model_data['avg_l1'], label=f'{model} - l2', color=cmap(i), alpha=0.9)
-        gray_label = f'trapped' if i == 0 else None  # Only label once
+        ax.bar(offsets, model_data['avg_l1'], width,  alpha=0.6)
+        ax.bar(offsets, model_data['avg_l2'], width, bottom=model_data['avg_l1'], color=color, alpha=0.9)
         ax.bar(offsets, model_data['avg_trapped'], width,
                bottom=model_data['avg_l1'] + model_data['avg_l2'],
-               label=gray_label, color='gray', alpha=0.5)
+               color='gray', alpha=0.5)
+        
+        unary_patch = Patch(facecolor=color, alpha=0.6)
+        binary_patch = Patch(facecolor=color, alpha=1.0)
+        legend_handles.append((binary_patch, unary_patch))
+        legend_labels.append(f"{model}  binary / unary")
 
-        # Add labels for number of segments
-        """total_heights = model_data['avg_l1'] + model_data['avg_l2'] + model_data['avg_trapped']
-        for j, (offset, height, segments) in enumerate(zip(offsets, total_heights, model_segments)):
-            ax.text(offset, height + 0.01, f'avg no of adj\n segments: {segments:.1f}',
-                   ha='center', va='bottom', fontsize=4, rotation=0)"""
+    legend_handles.append(Patch(facecolor='grey', alpha=1.0))
+    legend_labels.append("Trapped material")
+    ax.legend(legend_handles, legend_labels,
+            handler_map={tuple: HandlerTuple(ndivide=None)},
+            fontsize=16)
 
     human_rho = ((1e-8)*4*1e4)
     x_ticks = [f"{(i*4*ne)/human_rho:.2g}" for i in rs]
-    print(x_ticks)
     ax.set_xticks(x)
     ax.set_xticklabels(x_ticks)
-    ax.set_xlabel(r'Normalized recombination rate ($\rho / \rho_{\mathrm{human}}$)')
+    ax.set_xlabel(r'Normalised recombination rate ($\rho / \rho_{\mathrm{human}}$)', fontsize=18)
+    ax.tick_params(labelsize=16)
+
     #ax.set_yscale('log')
-    ax.set_ylabel('Normalized length (per L)')
-    ax.set_title(f'Stacked bar of l1, l2, and trapped material per r\nSample size {sample_size}, Ne {Ne}, L {L}')
-    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax.set_title('Normalised length (per L)', loc='left', fontsize=18)
+    #ax.set_title(f'Stacked bar of l1, l2, and trapped material per r\nSample size {sample_size}, Ne {Ne}, L {L}')
+    #ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    #ax.legend(fontsize=13)
     ax.grid(True)
 
     plt.tight_layout()
     save(f'{infile.split(".")[0]}_stacked_bar')
     plt.close()
 
-def plot_ratio_bars(ratio_param='l1+l2'):
-    df = pd.read_csv(filename)
-
-    # Filter on sample size
-    df_samples = df[df['num_samples'] == sample_size].copy()
-
-    # Group and aggregate
-    grouped = df_samples.groupby(['r', 'model']).agg({
-        'avg_hulls': 'mean',
-        'avg_l1': 'mean',
-        'avg_l2': 'mean',
-        'avg_trapped': 'mean',
-        'avg_adj_hap_len': 'mean',
-        'no_of_segments': 'mean'
-    }).reset_index()
-
-    models = sorted(grouped['model'].unique())
-    rs = sorted(grouped['r'].unique())
-    x = np.arange(len(rs))
-
-    width = 0.8 / len(models)  # space bars for each model at the same r
-    fig, ax = plt.subplots(figsize=(12, 6))
-    cmap = plt.get_cmap('tab10')
-
-    grouped['l1+l2'] = grouped['avg_l1'] + grouped['avg_l2']
-
-    pivoted = grouped.pivot(index='r', columns='model', values=ratio_param)
-    # Also pivot the segments data for labeling
-    segments_pivoted = grouped.pivot(index='r', columns='model', values='no_of_segments')
-
-    # Compute ratio: smc_k / Hudson
-    pivoted['ratio'] = pivoted['smc(k=1)'] / pivoted['Hudson']
-
-    # Plotting
-    fig, ax = plt.subplots(figsize=(10, 5))
-    bars = ax.bar(pivoted.index.astype(str), pivoted['ratio'], color='skyblue')
-    ax.axhline(1, linestyle='--', color='gray', linewidth=1)
-
-    # Add segment labels on top of bars showing both models
-    for i, (r_val, ratio_val) in enumerate(zip(pivoted.index, pivoted['ratio'])):
-        hudson_segments = segments_pivoted.loc[r_val, 'Hudson']
-        smck_segments = segments_pivoted.loc[r_val, 'smc(k=1)']
-
-        # Position label above bar, with small offset
-        y_pos = ratio_val + 0.01 if ratio_val > 0 else ratio_val - 0.01
-        va = 'bottom' if ratio_val > 0 else 'top'
-
-        # Create label showing both model segments
-        label_text = f'avg no of adj\n segments (hudson):{hudson_segments:.1f}'
-        ax.text(i, y_pos, label_text,
-               ha='center', va=va, fontsize=8)
-
-    ax.set_xlabel('r')
-    ax.set_title(f'smc ({ratio_param}) / hudson ({ratio_param})')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    save(f'{filename.split(".")[0]}_{ratio_param}_ratios_bar')
-    plt.close()
-
 if __name__ == "__main__":
     #generate_data(replicates=10)
     plot_stacked_bars()
-    #plot_by_rs()
-    #plot_ratio_bars('avg_adj_hap_len')
-    #plot_by_samples()
-    '''for param in ['num_trees', 'avg_hulls', 'avg_l1','avg_l2','avg_trapped','avg_adj_hap_len',]:
-        plot_single_parameter(param=param)
-        plot_single_parameter(param=param, log_f=True)'''
+    #for param in ['num_trees']:
+        #plot_single_parameter(param=param)
+    param = 'num_trees'
+    title = "Number of trees making the ARG"
+    plot_single_parameter(param=param, log_f=True, title=title)
