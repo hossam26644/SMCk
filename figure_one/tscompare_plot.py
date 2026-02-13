@@ -12,22 +12,23 @@ warnings.filterwarnings("ignore")
 
 max_workers=14
 filename = f'diff_tscompare.csv'
-replicates  = 20
+replicates  = 1000
 Ne = 1e6
-sample_size = 4
-recombination_rate = 1e-9 #2.40463e-08
-seq_len = 1e6
+sample_size = 2
+recombination_rate =1.045e-8
+seq_len = 1e5
 models = {'Hudson':'Hudson',
-          'k=500k': msprime.SmcKApproxCoalescent(hull_offset=500000),
-          'k=100k': msprime.SmcKApproxCoalescent(hull_offset=100000),
-          'k=1': msprime.SmcKApproxCoalescent(hull_offset=1),
-          'k=0': msprime.SmcKApproxCoalescent(hull_offset=0),
-          'k=10': msprime.SmcKApproxCoalescent(hull_offset=10),           
-          'k=100': msprime.SmcKApproxCoalescent(hull_offset=100),           
-          'k=1k': msprime.SmcKApproxCoalescent(hull_offset=1000),           
-          'k=10k': msprime.SmcKApproxCoalescent(hull_offset=10000),           
+          #'k=500k': msprime.SMCK(500000),
+          #'k=100k': msprime.SMCK(100000),
+          'SMC(1)': msprime.SMCK(1),
+          'SMC(0)': msprime.SMCK(0),
+          #'k=10': msprime.SMCK(10),           
+          #'k=100': msprime.SMCK(100),           
+          'SMC(1kb)': msprime.SMCK(1000),           
+          'SMC(10kb)': msprime.SMCK(10000),           
           }
-models_ordered = ['Hudson', 'k=0', 'k=1','k=10', 'k=100','k=1k', 'k=10k', 'k=100k', 'k=500k']
+#models_ordered = ['Hudson', 'k=0', 'k=1','k=10', 'k=100','k=1k', 'k=10k', 'k=100k', 'k=500k']
+models_ordered = ['Hudson', 'SMC(0)', 'SMC(1)','SMC(1kb)', 'SMC(10kb)']
 
 
 
@@ -40,12 +41,13 @@ def save(name):
     plt.savefig(f"figures/{name}.pdf")
 
 def get_exc_time(params):
+    print(params)
     model = params[0]
     model_class = models[model]
     start_time = time.time()
     ts_hudson = msprime.sim_ancestry(
         samples=sample_size,
-        ploidy=1,
+        ploidy=2,
         sequence_length=seq_len,
         recombination_rate=recombination_rate,
         population_size=Ne,
@@ -53,7 +55,7 @@ def get_exc_time(params):
     )
     ts_model = msprime.sim_ancestry(
         samples=sample_size,
-        ploidy=1,
+        ploidy=2,
         sequence_length=seq_len,
         recombination_rate=recombination_rate,
         population_size=Ne,
@@ -168,17 +170,24 @@ def plot(infile=filename):
     #a box plot of inverse matched span length per model
     plt.figure(figsize=(8,6))
     ax = plt.subplot(1,1,1)
-    sns.violinplot(data=df, x='model', y='inverse_matched_span', ax=ax, alpha=0.95, palette='Set3') 
+    
     mean_hudson = df.loc[df['model'] == 'Hudson', 'inverse_matched_span'].median()   
-    ax.axhline(mean_hudson, color='red', linestyle='--')     
-    plt.title('TSCompare Matched Span Length Comparison')
+    df_norm = df.copy()
+    df_norm['inverse_matched_span_norm'] = df_norm['inverse_matched_span'] / mean_hudson
+    df_norm = df_norm[df_norm['model'] != 'Hudson']
+    df_norm['model'] = df_norm['model'].cat.remove_categories('Hudson')
+    
+    sns.violinplot(data=df_norm, x='model', y='inverse_matched_span_norm', ax=ax, alpha=0.95, palette='Set3') 
+    ax.axhline(1, color='red', linestyle='--')     
+    plt.title('Normalised similarity ($\\it{tscompare}$ matched span)', loc='left', fontsize=16)
     plt.suptitle('')
-    plt.ylabel('Inverse_match matched Span Length')
+    plt.ylabel('')
+    plt.xlabel('')
+    ax.tick_params(labelsize=14)
     save('tscompare_inverse_matched_span_length_comparison')
 
     plt.figure(figsize=(8,6))
     ax = plt.subplot(1,1,1)
-    sns.violinplot(data=df, x='model', y='matched_span', ax=ax, alpha=0.95, palette='Set3') 
     mean_hudson = df.loc[df['model'] == 'Hudson', 'matched_span'].median()   
     ax.axhline(mean_hudson, color='red', linestyle='--')       
     plt.title('TSCompare Matched Span Length Comparison')
@@ -212,5 +221,5 @@ def plot(infile=filename):
 
 if __name__ == "__main__":
     
-    generate_data()
+    #generate_data()
     plot()

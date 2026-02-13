@@ -17,21 +17,21 @@ filename = f'speed.csv'
 replicates  = 25
 Ne = 1e6
 
-seq_len_dor = 32079331
-recombination_rate = 1e-8 #2.40463e-08
+seq_len_dor = 25400000
+recombination_rate = 1.045e-8 #2.40463e-08
 sample_sizes = [2, 4, 10, 100, 1000]
 
 lengths = np.logspace(1, 7, num=7, dtype=int)
 lengths = np.append(lengths, seq_len_dor)
-shortened_lengths = lengths[lengths <= 1e5]
+shortened_lengths = lengths[lengths <= 1e6]
 models = {'Hudson':'Hudson',
-          'smc(k=500k)': msprime.SmcKApproxCoalescent(hull_offset=500000),
-          'smc(k=1)': msprime.SmcKApproxCoalescent(hull_offset=1),
-          'smc(k=0)': msprime.SmcKApproxCoalescent(hull_offset=0)
+          'SMC(500k)': msprime.SMCK(500000),
+          'SMC(1)': msprime.SMCK(1),
+          'SMC(0)': msprime.SMCK(0)
           }
 
 models_for_sample_size = {'Hudson':'Hudson',
-                          'smc(k=1)': msprime.SmcKApproxCoalescent(hull_offset=1)}
+                          'SMC(1)': msprime.SMCK(1)}
 
 neL = Ne * lengths
 shortened_neL = Ne * shortened_lengths
@@ -69,7 +69,7 @@ def generate_data():
     #loop for speed test per model and per length
     for model in models:
         for replicate in range(replicates):
-            if model not in ['smc(k=1)', 'smc(k=0)']:
+            if model not in ['SMC(1)', 'SMC(0)']:
                 allowed_L = shortened_lengths
             else:
                 allowed_L = lengths
@@ -235,7 +235,7 @@ def plot_speed_per_sample_size(infile=filename):
     
     fig, ax = plt.subplots()
     for model in models_for_sample_size:
-        if model not in ['smc(k=1)']: continue
+        if model not in ['SMC(1)']: continue
         for sample_size in sample_sizes:
             model_times = df_avg[(df_avg['model']==model) & (df_avg['num_samples']==sample_size)]['ex_time'].to_numpy()
             xs = neL[:len(model_times)]
