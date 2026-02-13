@@ -17,9 +17,9 @@ L = 1e6
 max_workers=3
 filename = f'average_hulls_{sample_size}samples_segments.csv'
 models = {'CwR':'Hudson',
-          'SMCK(500kb)': msprime.SMCK(500000),
-          'SMCK(1)': msprime.SMCK(1),
-          'SMCK(0)': msprime.SMCK(0)
+          'SMC(500kb)': msprime.SMCK(500000),
+          'SMC(1)': msprime.SMCK(1),
+          'SMC(0)': msprime.SMCK(0)
           }
 
 rs = [1e-11, 1e-10, 1e-9]
