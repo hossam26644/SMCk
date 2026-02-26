@@ -10,7 +10,7 @@ import tscompare
 import warnings
 warnings.filterwarnings("ignore")
 
-max_workers=14
+max_workers=7
 filename = f'diff_tscompare.csv'
 replicates  = 1000
 Ne = 1e6
@@ -189,7 +189,12 @@ def plot(infile=filename):
     plt.figure(figsize=(8,6))
     ax = plt.subplot(1,1,1)
     mean_hudson = df.loc[df['model'] == 'Hudson', 'matched_span'].median()   
-    ax.axhline(mean_hudson, color='red', linestyle='--')       
+    df_norm = df.copy()
+    df_norm['matched_span_norm'] = df_norm['matched_span'] / mean_hudson
+    df_norm = df_norm[df_norm['model'] != 'Hudson']
+    df_norm['model'] = df_norm['model'].cat.remove_categories('Hudson')
+    sns.violinplot(data=df_norm, x='model', y='matched_span_norm', ax=ax, alpha=0.95, palette='Set3') 
+    ax.axhline(1, color='red', linestyle='--')       
     plt.title('TSCompare Matched Span Length Comparison')
     plt.suptitle('')
     plt.ylabel('Matched Span Length')
