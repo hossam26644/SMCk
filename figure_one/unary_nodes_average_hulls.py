@@ -25,6 +25,25 @@ models = {'CwR':'Hudson',
 rs = [1e-11, 1e-10, 1e-9]
 
 
+def format_genetic_length(length):
+    """
+    Convert a genetic length (in base pairs) into a human-readable string.
+    
+    स्वीकारs int or string input.
+    Returns string with appropriate unit (bp, Kbp, Mbp, Gbp).
+    """
+    # Convert input to integer
+    length = int(length)
+
+    if length < 1_000:
+        return f"{length} bp"
+    elif length < 1_000_000:
+        return f"{length / 1_000:.0f} Kbp"
+    elif length < 1_000_000_000:
+        return f"{length / 1_000_000:.0f} Mbp"
+    else:
+        return f"{length / 1_000_000_000:.0f} Gbp"
+
 def csv(x):
     return ",".join(map(str, x)) + "\n"
 
@@ -253,10 +272,15 @@ def plot_stacked_bars(infile=filename):
         lambda row: np.array(row['hulls']) - (np.array(row['l1']) + np.array(row['l2'])),
         axis=1
     )'''
+    
+    
+    """
+    Normalise y-axis by L
     grouped['avg_hulls'] = grouped['avg_hulls'].apply(lambda x: (x) / L)
     grouped['avg_l1'] = grouped['avg_l1'].apply(lambda x: (x) / L)
     grouped['avg_l2'] = grouped['avg_l2'].apply(lambda x: (x) / L)
-    grouped['avg_trapped'] = grouped['avg_trapped'].apply(lambda x: (x) / L)
+    grouped['avg_trapped'] = grouped['avg_trapped'].apply(lambda x: (x) / L)"""
+   
     # Keep no_of_segments unnormalized for the label
     segments_for_label = grouped['no_of_segments'].copy()
     grouped['no_of_segments'] = grouped['no_of_segments'].apply(lambda x: (x) / L)
@@ -298,13 +322,15 @@ def plot_stacked_bars(infile=filename):
 
     human_rho = ((1e-8)*4*1e4)
     x_ticks = [f"{(i*4*ne)/human_rho:.2g}" for i in rs]
+    y_ticks = [format_genetic_length(t) for t in ax.get_yticks()]
+    ax.set_yticklabels(y_ticks)
     ax.set_xticks(x)
     ax.set_xticklabels(x_ticks)
     ax.set_xlabel(r'Normalised recombination rate ($\rho / \rho_{\mathrm{human}}$)', fontsize=18)
     ax.tick_params(labelsize=16)
 
     #ax.set_yscale('log')
-    ax.set_title('Normalised length (per L)', loc='left', fontsize=18)
+    ax.set_title('Sequence span', loc='left', fontsize=18)
     #ax.set_title(f'Stacked bar of l1, l2, and trapped material per r\nSample size {sample_size}, Ne {Ne}, L {L}')
     #ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     #ax.legend(fontsize=13)
@@ -319,10 +345,10 @@ if __name__ == "__main__":
     plot_stacked_bars()
     #for param in ['num_trees']:
         #plot_single_parameter(param=param)
-    param = 'num_trees'
+    """param = 'num_trees'
     title = "Number of trees making the ARG"
     plot_single_parameter(param=param, log_f=True, title=title)
 
     param = 'avg_l2'
     title = "Average node spans"
-    plot_single_parameter(param=param, log_f=True, title=title)
+    plot_single_parameter(param=param, log_f=True, title=title)"""
