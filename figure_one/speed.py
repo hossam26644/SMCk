@@ -10,6 +10,7 @@ import time
 import numpy as np
 import ast
 import warnings
+from scipy.stats import linregress
 warnings.filterwarnings("ignore")
 
 max_workers=8
@@ -23,7 +24,7 @@ sample_sizes = [2, 4, 10, 100, 1000]
 
 lengths = np.logspace(1, 7, num=7, dtype=int)
 lengths = np.append(lengths, seq_len_dor)
-shortened_lengths = lengths[lengths <= 1e6]
+shortened_lengths = lengths[lengths <= 1e7]
 models = {'CwR':'Hudson',
           'SMC(500k)': msprime.SMCK(500000),
           'SMC(1)': msprime.SMCK(1),
@@ -62,7 +63,7 @@ def get_exc_time(params):
 
     return [Ne, length, recombination_rate, sample_size, str(model), ex_time]
 
-def generate_data():
+def generate_data(append=False):
 
     tasks = []
 
@@ -82,8 +83,10 @@ def generate_data():
                 else:
                     tasks.append((model, length, 2))
 
-    with open(filename, "w") as f:
-        f.write(csv(['N', 'L', 'r','num_samples', 'model', 'ex_time']))
+    mode = "a" if append else "w"
+    with open(filename, mode) as f:
+        if not append:
+            f.write(csv(['N', 'L', 'r','num_samples', 'model', 'ex_time']))
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks and get futures
@@ -125,10 +128,10 @@ def text_on_plot_top(ax, x, text, color):
 
 def get_fitted_cwr(df_avg):
     hudson_times = df_avg[df_avg['model']=='CwR']['ex_time'].to_numpy()
-    fit_times = np.polyfit(shortened_neL[3:], hudson_times[3:], 2)
+    fit_times = np.polyfit(shortened_neL[4:], hudson_times[4:], 2)
     fit_fn = np.poly1d(fit_times)
-    fitted_line = fit_fn(neL[3:])
-    return neL[3:], fitted_line
+    fitted_line = fit_fn(neL[4:])
+    return neL[4:], fitted_line
 
 def plot_speed(infile=filename):
     
