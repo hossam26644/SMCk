@@ -13,7 +13,7 @@ import warnings
 from scipy.stats import linregress
 warnings.filterwarnings("ignore")
 
-max_workers=8
+max_workers=12
 filename = f'speed.csv'
 replicates  = 25
 Ne = 1e6
@@ -262,9 +262,86 @@ def plot_speed_per_sample_size(infile=filename):
     plt.clf()
 
 
+def plot_scaling_with_sample_size(infile=filename, model='SMC(1)'):
+
+
+    def best_fit(ns, ts):
+        """Returns (label, r2, y_pred) for best scaling law."""
+
+        scaling_transforms = {
+            'O(log n)':    lambda n: np.log(n),
+            'O(n)':        lambda n: n,
+            'O(n log n)':  lambda n: n * np.log(n),
+            'O(n²)':       lambda n: n ** 2,
+        }
+
+        best = None
+        for label, transform in scaling_transforms.items():
+            x = transform(ns)
+            slope, intercept, r, *_ = linregress(x, ts)
+            r2 = r ** 2
+            y_pred = slope * x + intercept
+            if best is None or r2 > best[1]:
+                best = (label, r2, y_pred, slope, intercept, transform)
+        return best
+    
+    df = pd.read_csv(infile)
+    df = df[df['model'].isin(models_for_sample_size.keys())]
+    df_avg = df.groupby(['model', 'L', 'num_samples']).mean().reset_index()
+
+    # Attach neL
+    df_avg['neL'] = df_avg['N'] * df_avg['L']
+
+    fig, ax = plt.subplots()
+    
+    df_filtered = df_avg[(df_avg['model'] == model) & (df_avg['neL'] > 1e11)]
+    neLs = set(df_filtered['neL'])
+
+
+    for j, neL in enumerate(neLs):
+
+        # Filter high-signal NeL only
+        subset = df_filtered[df_filtered['neL'] == neL]
+
+        if subset.empty:
+            print(f"No data above NeL=1e11 for {model}")
+            continue
+
+        # Aggregate: mean ex_time per sample size across qualifying NeL
+        agg = subset.groupby('num_samples')['ex_time'].mean().reset_index()
+        agg = agg.sort_values('num_samples')
+
+        ns = agg['num_samples'].to_numpy(dtype=float)
+        ts = agg['ex_time'].to_numpy(dtype=float)
+
+        if len(ns) < 3:
+            print(f"Insufficient sample sizes for {model}")
+            continue
+
+        label, r2, y_pred, slope, intercept, transform = best_fit(ns, ts)
+
+        # Smooth fit curve
+        ns_fine = np.linspace(ns.min(), ns.max(), 300)
+        ts_fine = slope * transform(ns_fine) + intercept
+
+        color = f"C{j}"
+        neL_label = (lambda m, e: rf"$10^{{{int(e)}}}$" if float(m) == 1 else rf"${m}\times10^{{{int(e)}}}$")(*f"{neL:.1e}".split("e"))
+        ax.scatter(ns, ts, color=color, zorder=5, label=f"Ne*L: {neL_label}")
+        ax.plot(ns_fine, ts_fine, color=color, linestyle='--',
+                label=f"Best fit: {label} (R²={r2:.3f})")
+
+    ax.set_xlabel('Number of Samples')
+    ax.set_ylabel('Mean Execution Time (seconds)')
+    ax.set_title('Execution Time Scaling with Sample Size')
+    ax.legend()
+    save(f'scaling_with_sample_size_{model}')
+    plt.clf()
+
+
 if __name__ == "__main__":
-    #generate_data()
-    plot_speed()
-    plot_speed_per_model()
-    plot_speed_per_sample_size()
+    #generate_data(append=True)
+    #plot_speed()
+    plot_scaling_with_sample_size(model="CwR")
+    #plot_speed_per_model()
+    #plot_speed_per_sample_size()
     
